@@ -193,9 +193,25 @@ static ssize_t flashlight_brightness_store(struct device *dev,
 					  CAMERA_SENSOR_FLASH_OP_FIRELOW,
 			(u64)flashlight_brightness);
 		break;
-	default:
-		CAM_INFO(CAM_FLASH, "flashlight had not been enable yet.");
-		break;
+	default: {
+                struct pwm_state state;
+
+                pwm_get_state(pwm, &state);
+                if (state.enabled) {
+                        CAM_INFO(CAM_FLASH,
+                                "Flash status OFF but PWM active; applying torch brightness: %u",
+                                flashlight_brightness);
+                        pm6125_flash_gpio_select_state(
+                                PM6125_FLASH_GPIO_STATE_ACTIVE,
+                                CAMERA_SENSOR_FLASH_OP_FIRELOW,
+                                (u64)FLASH_FIRE_LOW_MAXCURRENT *
+                                flashlight_brightness / 127);
+                } else {
+                        CAM_INFO(CAM_FLASH,
+                                "Flashlight OFF and PWM inactive; skipping brightness update.");
+                }
+                break;
+        }
 	}
 
 	return size;
